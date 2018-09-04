@@ -14,6 +14,40 @@ class LocMemCache(dict):
         self[key] = value
 
 
+class WattTimeAPIV2(object):
+    def __init__(self, user_name, password):
+        """Require API token"""
+        # set token in header
+        token = requests.get("https://api2.watttime.org/v2/login",
+                             auth=(user_name, password)).json()["token"]
+        self.auth_header = {'Authorization': 'Bearer %s' % token}
+
+    def fetch_grid_data(self, start_time, end_time, ba=None, lat=None, lng=None, **kwargs):
+        """
+        Fetch data from API between start and end dates.
+        Gets forecast marginal carbon impact using any kwargs.
+        """
+        # set up params
+        params = {
+            'starttime': start_time,
+            'endtime': end_time,
+        }
+        params.update({'ba': ba}) if ba is not None else params.update({'latitude': lat, 'longitude': lng})
+        params.update(kwargs)
+
+        # make request
+        result = requests.get('https://api2.watttime.org/v2/data',
+                              params=params, headers=self.auth_header, timeout=180)
+        return result.json()
+
+
+    def get_timestamp(self, d):
+        """Extracts an aware UTC datetime from a data dict"""
+        naive_dt = datetime.strptime(d['point_time'], '%Y-%m-%dT%H:%M:%S.000Z')
+        aware_dt = pytz.utc.localize(naive_dt)
+        return aware_dt
+
+
 class WattTimeAPI(object):
     def __init__(self, token=None):
         """Require API token"""
